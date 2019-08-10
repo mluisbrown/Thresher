@@ -49,16 +49,17 @@ func test_image_loading() {
 
 `TestScheduler` allows you to test asynchronous code in a synchronous way, which makes it much easier to write tests. It *does* require that you write your code that returns `Publisher`s to require a `Scheduler` to be specified:
 
-```swift
-func loadImage(
+```
+swift
+func loadImage<S: Scheduler>(
     from url: URL,
-    on scheduler: Scheduler
+    on scheduler: S?
 ) -> AnyPublisher<UIImage?, Never> {
     return URLSession.shared.dataTaskPublisher(for: url)
         .map(\.data)
         .map(UIImage.init(data:))
         .catch { _ in Empty<UIImage?, Never>() }
-        .receive(on: scheduler)
+        .receive(on: scheduler ?? (DispatchQueue.main as! S))
         .eraseToAnyPublisher()
 }
 ```
