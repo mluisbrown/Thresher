@@ -98,7 +98,6 @@ final class ThresherTests: XCTestCase {
         let _ = subject
             .receive(on: scheduler)
             .sink { value in
-                print(value)
                 ints.append(value)
             }
 
