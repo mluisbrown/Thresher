@@ -84,3 +84,36 @@ Whilst this code is actually more verbose than the async code it is written in a
 * create the publisher and setup the subcription
 * advance the scheduler so the subscription closure runs
 * check the results
+
+To illustrate this synchronous nature, here is a test from [`ThresherTests`](https://github.com/mluisbrown/Thresher/blob/master/Tests/ThresherTests/ThresherTests.swift):
+
+```swift
+func test_passthrough_subject_single_values() {
+    let scheduler = TestScheduler()
+    let subject = PassthroughSubject<Int, Never>()
+
+    var ints: [Int] = []
+
+    let _ = subject
+        .receive(on: scheduler)
+        .sink { value in
+            print(value)
+            ints.append(value)
+        }
+
+    // the act of subscription is also scheduled on the scheduler
+    // so we need to advance the scheduler to make sure the subription
+    // has occured
+    scheduler.advance()
+
+    subject.send(1)
+    scheduler.advance()
+    XCTAssert(ints == [1])
+
+    subject.send(2)
+    scheduler.advance()
+    XCTAssert(ints == [1, 2])
+}
+```
+
+We can individually advance the scheduler after each `send` and check the result of the subscription at each stage. These examples are rather contrived, but when testing more complex Combine code this level of fine grained control is very useful.

@@ -89,6 +89,33 @@ final class ThresherTests: XCTestCase {
         XCTAssert(ints == [1, 2])
     }
 
+    func test_passthrough_subject_single_values() {
+        let scheduler = TestScheduler()
+        let subject = PassthroughSubject<Int, Never>()
+
+        var ints: [Int] = []
+
+        let _ = subject
+            .receive(on: scheduler)
+            .sink { value in
+                print(value)
+                ints.append(value)
+            }
+
+        // the act of subscription is also scheduled on the scheduler
+        // so we need to advance the scheduler to make sure the subription
+        // has occured
+        scheduler.advance()
+
+        subject.send(1)
+        scheduler.advance()
+        XCTAssert(ints == [1])
+
+        subject.send(2)
+        scheduler.advance()
+        XCTAssert(ints == [1, 2])
+    }
+
     func test_image_loading() {
         let url = directory.appendingPathComponent("thresher.jpg")
         let scheduler = TestScheduler()
@@ -131,5 +158,7 @@ final class ThresherTests: XCTestCase {
         ("test_schedule_after_advance_to", test_schedule_after_advance_to),
         ("test_schedule_in_order", test_schedule_in_order),
         ("test_passthrough_subject", test_passthrough_subject),
+        ("test_passthrough_subject_single_values", test_passthrough_subject_single_values),
+        ("test_image_loading", test_image_loading),
     ]
 }
