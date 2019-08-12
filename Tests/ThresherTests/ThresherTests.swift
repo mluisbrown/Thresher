@@ -4,6 +4,11 @@ import Combine
 @testable import Thresher
 
 final class ThresherTests: XCTestCase {
+    var directory: URL {
+        return URL(fileURLWithPath: #file)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures")
+    }
 
     func test_schedule() {
         let scheduler = TestScheduler()
@@ -62,7 +67,7 @@ final class ThresherTests: XCTestCase {
 
         var ints: [Int] = []
 
-        let cancel = subject
+        let _ = subject
             .receive(on: scheduler)
             .sink { value in
                 print(value)
@@ -76,12 +81,48 @@ final class ThresherTests: XCTestCase {
 
         subject.send(1)
         subject.send(2)
+        // the subscriber hasn't received any values yet
+        // as it hasn't been scheduled
         XCTAssert(ints.isEmpty)
 
         scheduler.run()
         XCTAssert(ints == [1, 2])
+    }
 
-        cancel.cancel()
+    func test_image_loading() {
+        let url = directory.appendingPathComponent("thresher.jpg")
+        let scheduler = TestScheduler()
+        var image: UIImage? = nil
+
+        let _ = loadImage(from: url)
+            .receive(on: scheduler)
+            .sink { image = $0 }
+
+        // schedule the subscription
+        scheduler.advance()
+
+        // wait for URLSession dataTaskPublisher to do its thing
+        wait(seconds: 2)
+
+        // process subscription results
+        scheduler.advance()
+        XCTAssertNotNil(image)
+    }
+
+    private func loadImage(from url: URL) -> AnyPublisher<UIImage?, Never> {
+        return URLSession.shared.dataTaskPublisher(for: url)
+            .map(\.data)
+            .map(UIImage.init(data:))
+            .catch { _ in Empty<UIImage?, Never>() }
+            .eraseToAnyPublisher()
+    }
+
+    private func wait(seconds: TimeInterval) {
+        let expectation = XCTestExpectation(description: "waiting")
+        DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: seconds + 1)
     }
 
     static var allTests = [
