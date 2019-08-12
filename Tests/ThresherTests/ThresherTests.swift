@@ -56,8 +56,7 @@ final class ThresherTests: XCTestCase {
         XCTAssert(ints == [100, 200, 300])
     }
 
-    // this test currently failing - needs investigation
-    func _test_passthrough_subject() {
+    func test_passthrough_subject() {
         let scheduler = TestScheduler()
         let subject = PassthroughSubject<Int, Never>()
 
@@ -69,6 +68,11 @@ final class ThresherTests: XCTestCase {
                 print(value)
                 ints.append(value)
             }
+
+        // the act of subscription is also scheduled on the scheduler
+        // so we need to advance the scheduler to make sure the subription
+        // has occured
+        scheduler.advance()
 
         subject.send(1)
         subject.send(2)
@@ -85,5 +89,6 @@ final class ThresherTests: XCTestCase {
         ("test_schedule_after_advance_by", test_schedule_after_advance_by),
         ("test_schedule_after_advance_to", test_schedule_after_advance_to),
         ("test_schedule_in_order", test_schedule_in_order),
+        ("test_passthrough_subject", test_passthrough_subject),
     ]
 }
