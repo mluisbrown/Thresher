@@ -19,7 +19,7 @@ public class TestScheduler: Scheduler {
         }
 
         func less(_ rhs: ScheduledAction) -> Bool {
-            return date < rhs.date
+            return date.dispatchTime < rhs.date.dispatchTime
         }
     }
 

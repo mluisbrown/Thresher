@@ -13,6 +13,8 @@ Copy the `TestScheduler.swift` file into your project.
 
 ## Usage
 
+⚠️ WORK IN PROGRESS ⚠️ 
+
 Normally, `Publisher` values are delivered to a `Subscriber` on the thread on which they are sent. However, you can specify an alternate `Scheduler` on which a `Publisher`'s values should be sent to the `Subscriber` using [`receive(on:)`](https://developer.apple.com/documentation/combine/publisher/3204743-receive).  For example, if you want the results of a network request to be delivered to subscribers on the main thread:
 
 ```swift
@@ -36,7 +38,7 @@ func test_image_loading() {
     let expectation = XCTestExpectation()
 
     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-        loadImage(from: url)
+        _ = loadImage(from: url)
             .sink { image in
                 XCTAssertNotNil(image)
                 expectation.fulfill()
@@ -47,24 +49,9 @@ func test_image_loading() {
 }
 ```
 
-`TestScheduler` allows you to test asynchronous code in a synchronous way, which makes it much easier to write tests. It *does* require that you write your code that returns `Publisher`s to require a `Scheduler` to be specified:
+`TestScheduler` allows you to test asynchronous code in a synchronous way, which makes it much easier to write tests. 
 
-```
-swift
-func loadImage<S: Scheduler>(
-    from url: URL,
-    on scheduler: S?
-) -> AnyPublisher<UIImage?, Never> {
-    return URLSession.shared.dataTaskPublisher(for: url)
-        .map(\.data)
-        .map(UIImage.init(data:))
-        .catch { _ in Empty<UIImage?, Never>() }
-        .receive(on: scheduler ?? (DispatchQueue.main as! S))
-        .eraseToAnyPublisher()
-}
-```
-
-Then your testing function becomes:
+You just need to add a `receive(on:)` call in your test code, so your testing function becomes:
 
 ```swift
 func test_image_loading() {
@@ -72,7 +59,8 @@ func test_image_loading() {
     let scheduler = TestScheduler()
     var image: UIImage? = nil
 
-    _ = loadImage(from: url, on: scheduler)
+    _ = loadImage(from: url)
+        .receive(on: scheduler)
         .sink {  image = $0 }
 
     // this will cause all actions currently queued to
