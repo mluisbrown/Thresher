@@ -73,7 +73,20 @@ public class TestScheduler: Scheduler {
         options: Never?,
         _ action: @escaping () -> Void
     ) -> Cancellable {
-        let scheduledAction = ScheduledAction(date: date, action: action)
+        let serialCancellable = SerialCancellable()
+
+        let scheduledAction = ScheduledAction(date: date) {
+            action()
+
+            serialCancellable.cancellable
+                = self.schedule(
+                    after: self._currentDate.advanced(by: interval),
+                    interval: interval,
+                    tolerance: tolerance,
+                    options: options,
+                    action
+                )
+        }
         schedule(scheduledAction)
 
         return AnyCancellable {
@@ -121,6 +134,7 @@ public class TestScheduler: Scheduler {
 
             let scheduledAction = scheduledActions.remove(at: 0)
             scheduledAction.action()
+            scheduledActions.sort { $0.less($1) }
         }
 
         _currentDate = newDate
@@ -132,5 +146,19 @@ public class TestScheduler: Scheduler {
     /// date at `DispatchTime.distantFuture`.
     public func run() {
         advance(to: SchedulerTimeType(DispatchTime.distantFuture))
+    }
+}
+
+private final class SerialCancellable: Cancellable {
+    init() {}
+
+    var cancellable: Cancellable? {
+        didSet {
+            oldValue?.cancel()
+        }
+    }
+
+    func cancel() {
+        cancellable?.cancel()
     }
 }

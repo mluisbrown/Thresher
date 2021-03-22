@@ -58,7 +58,35 @@ final class ThresherTests: XCTestCase {
 
         scheduler.run()
 
-        XCTAssert(ints == [100, 200, 300])
+        XCTAssertEqual(ints, [100, 200, 300])
+    }
+
+    func test_schedule_nested() {
+        let scheduler = TestScheduler()
+
+        var ints: [Int] = []
+        var cancellables: [AnyCancellable] = []
+
+        scheduler.schedule {
+            ints.append(1)
+        }
+        scheduler.schedule(after: scheduler.now.advanced(by: .seconds(10))) {
+            ints.append(2)
+            scheduler.schedule(after: scheduler.now.advanced(by: .seconds(20))) {
+                ints.append(3)
+            }
+        }
+        scheduler.schedule {
+            ints.append(4)
+        }
+        scheduler.schedule(after: scheduler.now.advanced(by: .seconds(5)), interval: .seconds(10)) {
+            ints.append(5) // 10 sec interval
+        }
+        .store(in: &cancellables)
+
+        scheduler.advance(by: 30)
+
+        XCTAssertEqual(ints, [1, 4, 5, 2, 5, 5, 3])
     }
 
     func test_passthrough_subject() {
@@ -66,13 +94,15 @@ final class ThresherTests: XCTestCase {
         let subject = PassthroughSubject<Int, Never>()
 
         var ints: [Int] = []
+        var cancellables: [AnyCancellable] = []
 
-        let _ = subject
+        subject
             .receive(on: scheduler)
             .sink { value in
                 print(value)
                 ints.append(value)
             }
+            .store(in: &cancellables)
 
         // the act of subscription is also scheduled on the scheduler
         // so we need to advance the scheduler to make sure the subription
@@ -86,7 +116,7 @@ final class ThresherTests: XCTestCase {
         XCTAssert(ints.isEmpty)
 
         scheduler.run()
-        XCTAssert(ints == [1, 2])
+        XCTAssertEqual(ints, [1, 2])
     }
 
     func test_passthrough_subject_single_values() {
@@ -94,12 +124,14 @@ final class ThresherTests: XCTestCase {
         let subject = PassthroughSubject<Int, Never>()
 
         var ints: [Int] = []
+        var cancellables: [AnyCancellable] = []
 
-        let _ = subject
+        subject
             .receive(on: scheduler)
             .sink { value in
                 ints.append(value)
             }
+            .store(in: &cancellables)
 
         // the act of subscription is also scheduled on the scheduler
         // so we need to advance the scheduler to make sure the subription
@@ -108,21 +140,23 @@ final class ThresherTests: XCTestCase {
 
         subject.send(1)
         scheduler.advance()
-        XCTAssert(ints == [1])
+        XCTAssertEqual(ints, [1])
 
         subject.send(2)
         scheduler.advance()
-        XCTAssert(ints == [1, 2])
+        XCTAssertEqual(ints, [1, 2])
     }
 
     func test_image_loading() {
         let url = directory.appendingPathComponent("thresher.jpg")
         let scheduler = TestScheduler()
         var image: UIImage? = nil
+        var cancellables: [AnyCancellable] = []
 
-        let _ = loadImage(from: url)
+        loadImage(from: url)
             .receive(on: scheduler)
             .sink { image = $0 }
+            .store(in: &cancellables)
 
         // schedule the subscription
         scheduler.advance()
